@@ -97,19 +97,19 @@ protected:
 
       for (auto& kv: d.services)
       {
-         std::cout << "   " << kv.second.uuid << '\n';
+         std::cout << "   " << kv.second.uuid << " " << kv.second.path << '\n';
          for (auto& read_only_c: kv.second.characteristics)
          {
             // Copy this so that we can change its state (for notifications)
             m_characteristics[read_only_c.Path()].reset(new asha::Characteristic(read_only_c));
             auto& c = *m_characteristics[read_only_c.Path()];
-            std::cout << "      " << c.UUID() << " [" << join(", ", c.Flags()) << "] ";
+            std::cout << "      " << c.UUID() << " " << c.Path() << " [" << join(", ", c.Flags()) << "] ";
             if (c.Flags().count("notify"))
             {
                std::cout << "[subscribed] ";
 
                c.Notify([=](const std::vector<uint8_t> &v) {
-                  std::cout << "Notify: " << c.UUID() << " " << HexDump(v) << '\n';
+                  std::cout << "Notify: " << c.UUID() << " " << c.Path() << " " << HexDump(v) << '\n';
                });
             }
             if (c.Flags().count("read"))
