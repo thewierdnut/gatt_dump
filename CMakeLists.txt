@@ -17,6 +17,7 @@ pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0 gio-2.0)
 add_executable(gatt_dump
    src/Bluetooth.cxx
    src/Characteristic.cxx
+   src/Descriptor.cxx
    src/GVariantDump.cxx
 
    gatt_dump.cxx

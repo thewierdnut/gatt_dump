@@ -7,6 +7,8 @@
 #include <vector>
 #include <set>
 
+#include "Descriptor.hh"
+
 struct _GDBusProxy;
 struct _GVariantIter;
 struct _GVariant;
@@ -31,6 +33,7 @@ public:
    const std::string& UUID() const { return m_uuid; }
    const std::set<std::string>& Flags() const { return m_flags; }
    const std::string& Service() const { return m_service_path; }
+   std::vector<Descriptor>& Descriptors() { return m_descriptors; }
 
    // Read the given Gatt characteristic.
    std::vector<uint8_t> Read();
@@ -41,6 +44,8 @@ public:
    // When the given Gatt characteristic is notified, call the given function.
    bool Notify(std::function<void(const std::vector<uint8_t>&)> fn);
    void StopNotify();
+
+   void AddDescriptor(const Descriptor& d) { m_descriptors.push_back(d); }
 
    operator bool() const { return !m_uuid.empty(); }
 
@@ -57,6 +62,8 @@ private:
    std::string m_service_path;
 
    std::set<std::string> m_flags;
+
+   std::vector<Descriptor> m_descriptors;
 
    unsigned long m_notify_handler_id = -1;
    std::function<void(const std::vector<uint8_t>&)> m_notify_callback;

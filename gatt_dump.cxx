@@ -20,6 +20,11 @@ const std::set<std::string> bad_read_uuids = {
    "2bdcaebe-8746-45df-a841-96b840980fb7",    // Disconnects on read.
 };
 
+const std::map<std::string, std::string> descriptors = {
+   {"00002901-0000-1000-8000-00805f9b34fb", "description"},
+   {"00002902-0000-1000-8000-00805f9b34fb", "CCC"}
+};
+
 template <typename T>
 std::string join(const std::string& s, const T& list)
 {
@@ -90,10 +95,9 @@ protected:
 
    void OnAddDevice(const asha::Bluetooth::BluezDevice& d)
    {
-      static bool once = false;
-      if (once) return;
-      once = true;
       std::cout << d.name << " with " << d.services.size() << " services\n";
+
+      auto& characteristics = m_devices[d.path];
 
       for (auto& kv: d.services)
       {
@@ -101,9 +105,9 @@ protected:
          for (auto& read_only_c: kv.second.characteristics)
          {
             // Copy this so that we can change its state (for notifications)
-            m_characteristics[read_only_c.Path()].reset(new asha::Characteristic(read_only_c));
-            auto& c = *m_characteristics[read_only_c.Path()];
-            std::cout << "      " << c.UUID() << " " << c.Path() << " [" << join(", ", c.Flags()) << "] ";
+            characteristics[read_only_c.Path()].reset(new asha::Characteristic(read_only_c));
+            auto& c = *characteristics[read_only_c.Path()];
+            std::cout << "      " << c.UUID() << " " << c.Path().substr(c.Path().rfind('/'))  << " [" << join(", ", c.Flags()) << "] ";
             if (c.Flags().count("notify"))
             {
                std::cout << "[subscribed] ";
@@ -123,12 +127,21 @@ protected:
                }
             }
             std::cout << "\n";
+
+            for (auto& d: c.Descriptors())
+            {
+               auto value = d.Read();
+               auto it = descriptors.find(d.UUID());
+               std::string dname = it == descriptors.end() ? "unknown descriptor" : it->second;
+               if (!dname.empty())
+                  std::cout << "         " << d.UUID() << " " << d.Path().substr(d.Path().rfind('/')) << " [" << dname << "] " << HexDump(value) << " \"" << Printable(value) << "\"\n";
+            }
          }
       }
    }
    void OnRemoveDevice(const std::string& path)
    {
-      
+      m_devices.erase(path);
    }
 
 protected:
@@ -136,7 +149,7 @@ protected:
 
 
 private:
-   std::map<std::string, std::shared_ptr<asha::Characteristic>> m_characteristics;
+   std::map<std::string, std::map<std::string, std::shared_ptr<asha::Characteristic>>> m_devices;
 
    asha::Bluetooth m_b; // needs to be last
 };

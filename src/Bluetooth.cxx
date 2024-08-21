@@ -1,4 +1,5 @@
 #include "Bluetooth.hh"
+#include "Descriptor.hh"
 #include "GVariantDump.hh"
 //#include "GVariantDump.hh"
 
@@ -240,6 +241,10 @@ void Bluetooth::ProcessDevice(const std::string& path, GVariantIter* property_di
 
 void Bluetooth::ProcessDeviceProperty(BluezDevice& device, const char* key, struct _GVariant* value)
 {
+   std::stringstream ss;
+   GVariantDump(value, ss);
+   g_info("%s %s %s", device.path.c_str(), key, ss.str().c_str());
+
    bool was_ready = device.resolved && device.connected;
    if (g_str_equal("Name", key))
    {
@@ -398,6 +403,8 @@ void Bluetooth::PrepareAndAddDevice(BluezDevice& device)
       }
    }
 
+   std::map<std::string, std::pair<std::string, size_t>> char_idx;
+
    // Scan through again, filling all the services with characteristics.
    {
       GVariantIter* it_object{};
@@ -416,7 +423,40 @@ void Bluetooth::PrepareAndAddDevice(BluezDevice& device)
             if (g_str_equal(CHARACTERISTIC_INTERFACE, interface))
             {
                Characteristic c(path, it_properties);
-               device.services[c.Service()].characteristics.emplace_back(c);
+               auto& entry = device.services[c.Service()];
+               size_t idx = entry.characteristics.size();
+               entry.characteristics.emplace_back(c);
+               // remember where this is for when we add descriptors
+               char_idx[path] = std::make_pair(c.Service(), idx);
+            }
+         }
+      }
+   }
+
+   // Scan through again, filling all the characteristics with descriptors.
+   {
+      GVariantIter* it_object{};
+      g_variant_get(result.get(), "(a{oa{sa{sv}}})", &it_object);
+      std::shared_ptr<GVariantIter> pit_object(it_object, g_variant_iter_free);
+      gchar* path{};
+      GVariantIter* it_interface{};
+      while (g_variant_iter_loop(it_object, "{oa{sa{sv}}}", &path, &it_interface))
+      {
+         if (std::string(path).substr(0, device.path.size()) != device.path)
+            continue;
+         gchar* interface{};
+         GVariantIter* it_properties{};
+         while (g_variant_iter_loop(it_interface, "{sa{sv}}", &interface, &it_properties))
+         {
+            if (g_str_equal("org.bluez.GattDescriptor1", interface))
+            {
+               Descriptor c(path, it_properties);
+               auto it = char_idx.find(c.Characteristic());
+               if (it != char_idx.end())
+               {
+                  auto& entry = device.services[it->second.first];
+                  entry.characteristics[it->second.second].AddDescriptor(c);
+               }
             }
          }
       }

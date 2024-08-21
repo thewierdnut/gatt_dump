@@ -54,6 +54,7 @@ Characteristic& Characteristic::operator=(const Characteristic& o)
    m_uuid = o.m_uuid;
    m_path = o.m_path;
    m_flags = o.m_flags;
+   m_service_path = o.m_service_path;
    return *this;
 }
 
